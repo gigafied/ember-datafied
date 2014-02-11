@@ -1,0 +1,29 @@
+{
+  "name": "ember-datafied",
+  "main": "ember-datafied.js",
+  "version": "0.0.1",
+  "homepage": "https://github.com/gigafied/ember-datafied",
+  "authors": [
+    "Taka Kojima <taka@gigafied.com>"
+  ],
+  "description": "Easy to use and customize data layer for Ember.js",
+  "keywords": [
+    "ember.js",
+    "ember",
+    "data",
+    "model",
+    "ajax",
+    "api",
+    "rest"
+  ],
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "dist",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ]
+}
+
