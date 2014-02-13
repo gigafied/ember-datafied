@@ -1312,7 +1312,7 @@ DF.hasMany = function (factoryName, options) {
 
 Ember.Application.initializer({
 
-    name : 'ez-data',
+    name : 'ember-datafied',
 
     initialize: function (container, app) {
 
