@@ -232,8 +232,8 @@ DF.Model = Ember.Object.extend({
 
     __currentPromise : null,
 
-    __isSaving : false,
     __isDirty : false,
+    __isSaving : false,
     __isLoaded : false,
     __isDeleting : false,
     __isDeleted : false,
@@ -293,12 +293,27 @@ DF.Model = Ember.Object.extend({
         return this.constructor.getRelationships();
     },
 
+    dirtyAttributes : function (key, val) {
+
+        if (arguments.length === 2) {
+            this.set('__dirtyAttributes', val);
+            this.set('__isDirty', val && val.length);
+        }
+
+        else {
+            val = this.get('__dirtyAttributes');
+        }
+
+        return val || [];
+
+    }.property('__dirtyAttributes'),
+
     isValid : function () {
         return this.validate();
     }.property(),
 
     isNew : function () {
-        return !this.get('pk');
+        return this.primaryKey ? !this.get('pk') : false;
     }.property(),
 
     isLoaded : function () {
@@ -313,13 +328,9 @@ DF.Model = Ember.Object.extend({
         return this.get('__isDeleted');
     }.property('__isDeleted'),
 
-    isDirty : function () {
-        return this.get('__isDirty');
-    }.property('__isDirty'),
-
     isClean : function () {
-        return !this.isDirty();
-    }.property('__isDirty'),
+        return !this.get('isDirty');
+    }.property(),
 
     serialize : function (isNested) {
 
@@ -395,12 +406,12 @@ DF.Model = Ember.Object.extend({
         }
 
         if (this.primaryKey) {
-            this.set('pk', json[this.primaryKey] || null);
+            this.set('pk', json[this.primaryKey] || pk);
         }
 
         this.set('__data', data);
         this.set('__isLoaded', true);
-        this.set('__isDirty', false);
+        this.set('dirtyAttributes', []);
     },
 
     validate : function () {
@@ -408,7 +419,11 @@ DF.Model = Ember.Object.extend({
     },
 
     merge : function (data) {
-        this.deserialize(data instanceof DF.Model ? data.deserialize() : data);
+
+        data = data instanceof DF.Model ? data.deserialize() : data;
+        data[this.primaryKey] = null;
+
+        this.deserialize(data);
     },
 
     save : function () {
@@ -449,7 +464,7 @@ DF.Model = Ember.Object.extend({
                 }
             }
 
-            this.set('__isDirty', false);
+            this.set('dirtyAttributes', []);
 
             return this.__currentPromise = this.adapter.saveRecord(this).then(function (json) {
 
@@ -506,45 +521,65 @@ DF.Model = Ember.Object.extend({
         data = this.get('__data') || {};
 
         copy = this.constructor.create();
-        copy.set('__data', data);
+        copy.set('__data', Ember.copy(data));
         copy.set('pk', null);
 
         copy.set('__isLoaded', true);
-        copy.set('__isDirty', false);
+        copy.set('dirtyAttributes', []);
 
         return copy;
     },
 
     revert : function () {
-        this.merge(this.__original);
-        this.__original.destroy();
-        this.__original = null;
-        this.__dirtyAttributes = null;
-        this.set('__isDirty', false);
+        this.merge(this.__originalData);
+        this.__originalData = null;
+        this.set('dirtyAttributes', []);
     }
 });
 
 DF.Model.reopenClass({
 
-    getAttributes : function (a) {
+    getAttributes : function () {
+
+        var a,
+            b,
+            i;
 
         this.proto();
         a = this.__attributes || [];
 
         if (typeof this.superclass.getAttributes === 'function') {
-            a = this.superclass.getAttributes().concat(a);
+
+            b = this.superclass.getAttributes();
+
+            for (i = 0; i < b.length; i ++) {
+                if (a.indexOf(b[i]) < 0) {
+                    a.push(b[i]);
+                }
+            }
         }
 
         return a;
     },
 
-    getRelationships : function (a) {
+    getRelationships : function () {
+
+        var a,
+            b,
+            i;
 
         this.proto();
         a = this.__relationships || [];
 
         if (typeof this.superclass.getRelationships === 'function') {
-            a = this.superclass.getRelationships().concat(a);
+
+            b = this.superclass.getRelationships();
+
+            for (i = 0; i < b.length; i ++) {
+                if (a.indexOf(b[i]) < 0) {
+                    a.push(b[i]);
+                }
+            }
         }
 
         return a;
@@ -556,8 +591,11 @@ DF.Model.reopenClass({
             r,
             d,
             p,
+            meta,
             props,
-            classProps;
+            dirtyChecks,
+            classProps,
+            relationships;
 
         d = {};
         r = this._super.apply(this, arguments);
@@ -575,6 +613,20 @@ DF.Model.reopenClass({
         }
 
         r.reopenClass(d);
+
+        relationships = r.getRelationships();
+        dirtyChecks = ['__isDirty'];
+
+        for (i = 0; i < relationships.length; i ++) {
+            p = relationships[i];
+            meta = r.metaForProperty(p);
+
+            if (meta.isRelationship && meta.options.embedded) {
+                dirtyChecks.push(p + '.__isDirty');
+            }
+        }
+
+        Ember.defineProperty(r.prototype, 'isDirty', Ember.computed.or.apply(this, dirtyChecks));
 
         return r;
     }
@@ -918,7 +970,10 @@ DF.attr = function (type, options) {
     var attr = Ember.computed(function (key, val) {
 
         var data,
-            oldVal;
+            oldVal,
+            isDirty,
+            dirtyAttrs,
+            dirtyIndex;
 
         data = this.get('__data');
 
@@ -933,14 +988,28 @@ DF.attr = function (type, options) {
 
             if (oldVal !== val) {
 
-                if (!this.__original) {
-                    this.__original = this.clone();
+                if (!this.__originalData) {
+                    this.__originalData = Ember.copy(data);
+                    isDirty = true;
                 }
 
-                this.__changedAttributes = this.__changedAttributes || [];
-                this.__changedAttributes.push(key);
+                else {
+                    isDirty = this.__originalData[key] !== val;
+                }
 
-                this.set('__isDirty', true);
+                dirtyAttrs = this.get('dirtyAttributes');
+                dirtyIndex = dirtyAttrs.indexOf(key);
+
+                if (dirtyIndex < 0 && isDirty) {
+                    dirtyAttrs.push(key);
+                    console.log(dirtyAttrs, this);
+                    this.set('dirtyAttributes', dirtyAttrs);
+                }
+
+                else if (!isDirty && dirtyIndex >= 0) {
+                    dirtyAttrs.splice(dirtyIndex, 1);
+                    this.set('dirtyAttributes', dirtyAttrs);
+                }
 
                 data[key] = val;
             }
@@ -985,7 +1054,10 @@ DF.belongsTo = function (factoryName, options) {
     belongsTo = Ember.computed(function (key, val) {
 
         var data,
-            oldVal;
+            oldVal,
+            isDirty,
+            dirtyAttrs,
+            dirtyIndex;
 
         factory = this.store.modelFor(factoryName);
 
@@ -1002,14 +1074,27 @@ DF.belongsTo = function (factoryName, options) {
 
             if (oldVal !== val) {
 
-                if (!this.__original) {
-                    this.__original = this.clone();
+                if (!this.__originalData) {
+                    this.__originalData = Ember.copy(data);
+                    isDirty = true;
                 }
 
-                this.__changedAttributes = this.__changedAttributes || [];
-                this.__changedAttributes.push(key);
+                else {
+                    isDirty = this.__originalData[key] !== val;
+                }
 
-                this.set('__isDirty', true);
+                dirtyAttrs = this.get('dirtyAttributes');
+                dirtyIndex = dirtyAttrs.indexOf(key);
+
+                if (dirtyIndex < 0 && isDirty) {
+                    dirtyAttrs.push(key);
+                    this.set('dirtyAttributes', dirtyAttrs);
+                }
+
+                else if (!isDirty && dirtyIndex >= 0) {
+                    dirtyAttrs.splice(dirtyIndex, 1);
+                    this.set('dirtyAttributes', dirtyAttrs);
+                }
 
                 if (typeof val === 'string' || typeof val === 'number') {
                     val = this.store.findInCacheOrCreate(factoryName, val);
@@ -1096,7 +1181,10 @@ DF.hasMany = function (factoryName, options) {
     hasMany = Ember.computed(function (key, val) {
 
         var data,
-            oldVal;
+            oldVal,
+            isDirty,
+            dirtyAttrs,
+            dirtyIndex;
 
         factory = this.store.modelFor(factoryName);
 
@@ -1113,14 +1201,27 @@ DF.hasMany = function (factoryName, options) {
 
             if (oldVal !== val) {
 
-                if (!this.__original) {
-                    this.__original = this.clone();
+                if (!this.__originalData) {
+                    this.__originalData = Ember.copy(data);
+                    isDirty = true;
                 }
 
-                this.__changedAttributes = this.__changedAttributes || [];
-                this.__changedAttributes.push(key);
+                else {
+                    isDirty = this.__originalData[key] !== val;
+                }
 
-                this.set('__isDirty', true);
+                dirtyAttrs = this.get('dirtyAttributes');
+                dirtyIndex = dirtyAttrs.indexOf(key);
+
+                if (dirtyIndex < 0 && isDirty) {
+                    dirtyAttrs.push(key);
+                    this.set('dirtyAttributes', dirtyAttrs);
+                }
+
+                else if (!isDirty && dirtyIndex >= 0) {
+                    dirtyAttrs.splice(dirtyIndex, 1);
+                    this.set('dirtyAttributes', dirtyAttrs);
+                }
 
                 if (val) {
 
