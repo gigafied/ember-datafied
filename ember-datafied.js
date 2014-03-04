@@ -377,6 +377,7 @@ DF.Model = Ember.Object.extend({
         var p,
             pk,
             key,
+            val,
             meta,
             item,
             data,
@@ -401,7 +402,8 @@ DF.Model = Ember.Object.extend({
             jsonItem = json[key];
 
             if (typeof jsonItem !== 'undefined') {
-                data[meta.key] = jsonItem === null ? null : meta.deserialize.call(this, jsonItem);
+                val = jsonItem === null ? null : meta.deserialize.call(this, jsonItem);
+                this.set(meta.key, val);
             }
         }
 
@@ -409,7 +411,7 @@ DF.Model = Ember.Object.extend({
             this.set('pk', json[this.primaryKey] || pk);
         }
 
-        this.set('__data', data);
+        //this.set('__data', data);
         this.set('__isLoaded', true);
         this.set('dirtyAttributes', []);
     },
@@ -1002,7 +1004,6 @@ DF.attr = function (type, options) {
 
                 if (dirtyIndex < 0 && isDirty) {
                     dirtyAttrs.push(key);
-                    console.log(dirtyAttrs, this);
                     this.set('dirtyAttributes', dirtyAttrs);
                 }
 

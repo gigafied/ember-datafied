@@ -1,6 +1,6 @@
 {
   "name": "ember-ez-data",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Easy and simple data layer for Ember.js",
   "main": "build.js",
   "dependencies": {
