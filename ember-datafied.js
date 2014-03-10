@@ -109,7 +109,7 @@ DF.RESTAdapter = DF.Adapter.extend({
 
         url = [this.get('host'), this.get('prefix')];
 
-        url.push(factory.get('url') || factory.get('typeKey'));
+        url.push(factory.url || factory.typeKey);
 
         if (id) {
             url.push(id);
