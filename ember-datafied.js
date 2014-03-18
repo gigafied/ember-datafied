@@ -232,7 +232,6 @@ DF.Model = Ember.Object.extend({
 
     __currentPromise : null,
 
-    __isDirty : false,
     __isSaving : false,
     __isLoaded : false,
     __isDeleting : false,
@@ -296,17 +295,17 @@ DF.Model = Ember.Object.extend({
     dirtyAttributes : function (key, val) {
 
         if (arguments.length === 2) {
-            this.set('__dirtyAttributes', val);
-            this.set('__isDirty', val && !!val.length);
+            val = val || [];
+            this.__dirtyAttributes = val;
         }
 
         else {
-            val = this.get('__dirtyAttributes');
+            val = this.__dirtyAttributes;
         }
 
         return val || [];
 
-    }.property('__dirtyAttributes'),
+    }.property(),
 
     isValid : function () {
         return this.validate();
@@ -330,7 +329,7 @@ DF.Model = Ember.Object.extend({
 
     isClean : function () {
         return !this.get('isDirty');
-    }.property(),
+    }.property('isDirty'),
 
     serialize : function (isNested) {
 
@@ -595,6 +594,7 @@ DF.Model.reopenClass({
             p,
             meta,
             props,
+            computed,
             dirtyChecks,
             classProps,
             relationships;
@@ -617,18 +617,39 @@ DF.Model.reopenClass({
         r.reopenClass(d);
 
         relationships = r.getRelationships();
-        dirtyChecks = ['__isDirty'];
+        dirtyChecks = ['dirtyAttributes'];
 
         for (i = 0; i < relationships.length; i ++) {
             p = relationships[i];
             meta = r.metaForProperty(p);
 
             if (meta.isRelationship && meta.options.embedded) {
-                dirtyChecks.push(p + '.__isDirty');
+                dirtyChecks.push(p + '.dirtyAttributes');
             }
         }
 
-        Ember.defineProperty(r.prototype, 'isDirty', Ember.computed.or.apply(this, dirtyChecks));
+        computed = Ember.computed(function () {
+
+            var i,
+                d,
+                a,
+                t;
+
+            a = [];
+
+            for (i = 0; i < dirtyChecks.length; i ++) {
+                d = this.get(dirtyChecks[i]);
+                if (d && d.length) {
+                    return true;
+                }
+            }
+
+            return false;
+        });
+
+        computed.property.apply(computed, dirtyChecks);
+
+        Ember.defineProperty(r.prototype, 'isDirty', computed);
 
         return r;
     }
@@ -991,7 +1012,7 @@ DF.attr = function (type, options) {
             if (oldVal !== val) {
 
                 if (!this.__originalData) {
-                    this.__originalData = Ember.copy(data);
+                    this.__originalData = Ember.copy(data || {});
                     isDirty = true;
                 }
 
@@ -1005,11 +1026,17 @@ DF.attr = function (type, options) {
                 if (dirtyIndex < 0 && isDirty) {
                     dirtyAttrs.push(key);
                     this.set('dirtyAttributes', dirtyAttrs);
+                    this.notifyPropertyChange('dirtyAttributes');
                 }
 
                 else if (!isDirty && dirtyIndex >= 0) {
                     dirtyAttrs.splice(dirtyIndex, 1);
                     this.set('dirtyAttributes', dirtyAttrs);
+                    this.notifyPropertyChange('dirtyAttributes');
+                }
+
+                if (typeof this.__originalData[key] === 'undefined') {
+                    this.__originalData[key] = val;
                 }
 
                 data[key] = val;
@@ -1076,7 +1103,7 @@ DF.belongsTo = function (factoryName, options) {
             if (oldVal !== val) {
 
                 if (!this.__originalData) {
-                    this.__originalData = Ember.copy(data);
+                    this.__originalData = Ember.copy(data || {});
                     isDirty = true;
                 }
 
@@ -1090,11 +1117,13 @@ DF.belongsTo = function (factoryName, options) {
                 if (dirtyIndex < 0 && isDirty) {
                     dirtyAttrs.push(key);
                     this.set('dirtyAttributes', dirtyAttrs);
+                    this.notifyPropertyChange('dirtyAttributes');
                 }
 
                 else if (!isDirty && dirtyIndex >= 0) {
                     dirtyAttrs.splice(dirtyIndex, 1);
                     this.set('dirtyAttributes', dirtyAttrs);
+                    this.notifyPropertyChange('dirtyAttributes');
                 }
 
                 if (typeof val === 'string' || typeof val === 'number') {
@@ -1107,6 +1136,10 @@ DF.belongsTo = function (factoryName, options) {
                         [val.constructor, factoryName]),
                         val instanceof factory
                     );
+                }
+
+                if (typeof this.__originalData[key] === 'undefined') {
+                    this.__originalData[key] = val;
                 }
 
                 data[key] = val;
@@ -1203,7 +1236,7 @@ DF.hasMany = function (factoryName, options) {
             if (oldVal !== val) {
 
                 if (!this.__originalData) {
-                    this.__originalData = Ember.copy(data);
+                    this.__originalData = Ember.copy(data || {});
                     isDirty = true;
                 }
 
@@ -1217,11 +1250,13 @@ DF.hasMany = function (factoryName, options) {
                 if (dirtyIndex < 0 && isDirty) {
                     dirtyAttrs.push(key);
                     this.set('dirtyAttributes', dirtyAttrs);
+                    this.notifyPropertyChange('dirtyAttributes');
                 }
 
                 else if (!isDirty && dirtyIndex >= 0) {
                     dirtyAttrs.splice(dirtyIndex, 1);
                     this.set('dirtyAttributes', dirtyAttrs);
+                    this.notifyPropertyChange('dirtyAttributes');
                 }
 
                 if (val) {
@@ -1231,6 +1266,10 @@ DF.hasMany = function (factoryName, options) {
                         [val.constructor, DF.Collection]),
                         val instanceof DF.Collection
                     );
+                }
+
+                if (typeof this.__originalData[key] === 'undefined') {
+                    this.__originalData[key] = val;
                 }
 
                 data[key] = val;
