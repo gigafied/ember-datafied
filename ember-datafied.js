@@ -237,6 +237,29 @@ DF.Model = Ember.Object.extend({
     __isDeleting : false,
     __isDeleted : false,
 
+    init : function () {
+
+        var i,
+            meta,
+            attributes;
+
+        attributes = this.getAttributes();
+
+        for (i = 0; i < attributes.length; i ++) {
+
+            meta = this.constructor.metaForProperty(attributes[i]);
+
+            if (typeof meta.options.defaultValue !== 'undefined') {
+                this.set(meta.key, meta.options.defaultValue);
+            }
+
+        }
+
+        this.set('dirtyAttributes', []);
+
+        return this._super.apply(this, arguments);
+    },
+
     didDefineProperty : function (proto, key, val) {
 
         var meta,
@@ -378,14 +401,10 @@ DF.Model = Ember.Object.extend({
             key,
             val,
             meta,
-            item,
-            data,
-            jsonItem,
             attributes,
             properties,
             relationships;
 
-        data = {};
         attributes = this.getAttributes();
         relationships = this.getRelationships();
 
@@ -393,24 +412,25 @@ DF.Model = Ember.Object.extend({
 
         pk = this.get('pk');
 
+
         for (p in properties) {
 
             meta = this.constructor.metaForProperty(p);
             key = meta.options.key || p;
 
-            jsonItem = json[key];
+            val = json[key];
 
-            if (typeof jsonItem !== 'undefined') {
-                val = jsonItem === null ? null : meta.deserialize.call(this, jsonItem);
+            if (typeof val !== 'undefined') {
+                val = val === null ? null : meta.deserialize.call(this, val);
                 this.set(meta.key, val);
             }
+
         }
 
         if (this.primaryKey) {
             this.set('pk', json[this.primaryKey] || pk);
         }
 
-        //this.set('__data', data);
         this.set('__isLoaded', true);
         this.set('dirtyAttributes', []);
     },
@@ -982,8 +1002,8 @@ DF.Store = Ember.Object.extend({
 DF.attr = function (type, options) {
 
     if (typeof type === 'object') {
-        type = 'string';
         options = type;
+        type = 'string';
     }
 
     type = type || 'string';
@@ -1013,7 +1033,6 @@ DF.attr = function (type, options) {
 
                 if (!this.__originalData) {
                     this.__originalData = Ember.copy(data || {});
-                    isDirty = true;
                 }
 
                 else {
@@ -1065,6 +1084,11 @@ DF.attr = function (type, options) {
         },
 
         deserialize : function (val) {
+
+            if (val === null && typeof options.defaultValue !== 'undefined') {
+                val = options.defaultValue;
+            }
+
             return val;
         }
     });
@@ -1159,6 +1183,7 @@ DF.belongsTo = function (factoryName, options) {
         type : 'belongsTo',
         isRelationship : true,
         options : options,
+        factory : factory,
 
         serialize : function () {
 
@@ -1189,9 +1214,12 @@ DF.belongsTo = function (factoryName, options) {
 
             meta = belongsTo.meta();
 
-            if (options.embedded && typeof val === 'object') {
+            if (options.embedded) {
                 record = factory.create();
-                record.deserialize(val);
+
+                if (val && typeof val === 'object') {
+                    record.deserialize(val);
+                }
             }
 
             else {
@@ -1289,6 +1317,7 @@ DF.hasMany = function (factoryName, options) {
         type : 'hasMany',
         isRelationship : true,
         options : options,
+        factory : factory,
 
         serialize : function () {
 
@@ -1319,7 +1348,7 @@ DF.hasMany = function (factoryName, options) {
 
             for (i = 0; i < val.length; i ++) {
 
-                if (val[i]) {
+                if (val && val[i]) {
 
                     if (options.embedded && typeof val[i] === 'object') {
                         record = factory.create();
