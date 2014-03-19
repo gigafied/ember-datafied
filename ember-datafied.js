@@ -180,16 +180,12 @@ DF.Collection = Ember.ArrayProxy.extend(Ember.Evented, {
         index = content.indexOf(obj);
 
         if (index < 0) {
-            return false;
+            return obj;
         }
 
-        obj.removed = true;
+        this.removeAt(index);
 
-        this.arrayContentWillChange(index, 1, 0);
-        content.splice(index, 1);
-        this.arrayContentDidChange(index, 1, 0);
-
-        return true;
+        return obj;
     },
 
     toString : function () {
@@ -249,7 +245,7 @@ DF.Model = Ember.Object.extend({
 
             meta = this.constructor.metaForProperty(attributes[i]);
 
-            if (typeof meta.options.defaultValue !== 'undefined') {
+            if (meta.options && typeof meta.options.defaultValue !== 'undefined') {
                 this.set(meta.key, meta.options.defaultValue);
             }
 
@@ -336,7 +332,7 @@ DF.Model = Ember.Object.extend({
 
     isNew : function () {
         return this.primaryKey ? !this.get('pk') : false;
-    }.property(),
+    }.property('pk'),
 
     isLoaded : function () {
         return this.get('__isLoaded');
@@ -349,10 +345,6 @@ DF.Model = Ember.Object.extend({
     isDeleted : function () {
         return this.get('__isDeleted');
     }.property('__isDeleted'),
-
-    isClean : function () {
-        return !this.get('isDirty');
-    }.property('isDirty'),
 
     serialize : function (isNested) {
 
@@ -412,11 +404,10 @@ DF.Model = Ember.Object.extend({
 
         pk = this.get('pk');
 
-
         for (p in properties) {
 
             meta = this.constructor.metaForProperty(p);
-            key = meta.options.key || p;
+            key = meta && meta.options ? meta.options.key || p : p;
 
             val = json[key];
 
@@ -515,6 +506,7 @@ DF.Model = Ember.Object.extend({
     deleteRecord : function () {
 
         this.set('__isDeleting', true);
+        this.store.remove(this);
 
         if (this.__currentPromise) {
             if (this.__currentPromise._state !== 1 && this.__currentPromise._state !== 2) {
@@ -523,8 +515,6 @@ DF.Model = Ember.Object.extend({
         }
 
         return this.__currentPromise = this.adapter.deleteRecord(this).then(function (json) {
-
-            this.store.remove(this);
 
             this.set('__isDeleting', false);
             this.set('__isDeleted', true);
@@ -536,13 +526,9 @@ DF.Model = Ember.Object.extend({
 
     clone : function () {
 
-        var copy,
-            data;
+        var copy;
 
-        data = this.get('__data') || {};
-
-        copy = this.constructor.create();
-        copy.set('__data', Ember.copy(data));
+        copy = this.constructor.create(this.serialize());
         copy.set('pk', null);
 
         copy.set('__isLoaded', true);
@@ -670,6 +656,9 @@ DF.Model.reopenClass({
         computed.property.apply(computed, dirtyChecks);
 
         Ember.defineProperty(r.prototype, 'isDirty', computed);
+        Ember.defineProperty(r.prototype, 'isClean', Ember.computed(function () {
+            return !this.get('isDirty');
+        }).property('isDirty'));
 
         return r;
     }
@@ -926,8 +915,7 @@ DF.Store = Ember.Object.extend({
                 records.push(record);
             }
 
-            collection = DF.Collection.create({content : records});
-            return collection;
+            return this.all(model);
 
         }.bind(this));
     },
