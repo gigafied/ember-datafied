@@ -411,17 +411,19 @@ DF.Model = Ember.Object.extend({
 
     deserialize : function (json, skipDirty) {
 
-        var p,
+        var i,
+            p,
             pk,
             key,
             val,
             meta,
             dirty,
+            orig,
             attributes,
             properties,
             relationships;
 
-        dirty = this.get('dirtyAttributes');
+        dirty = this.get('dirtyAttributes').concat();
 
         attributes = this.getAttributes();
         relationships = this.getRelationships();
@@ -432,11 +434,11 @@ DF.Model = Ember.Object.extend({
 
         for (p in properties) {
 
-            if (skipDirty && dirty.indexOf(p)) {
+            meta = this.constructor.metaForProperty(p);
+
+            if (skipDirty && ~dirty.indexOf(p)) {
                 continue;
             }
-
-            meta = this.constructor.metaForProperty(p);
 
             key = meta && meta.options ? meta.options.key || p : p;
 
@@ -454,7 +456,24 @@ DF.Model = Ember.Object.extend({
         }
 
         this.set('__isLoaded', true);
-        this.set('dirtyAttributes', []);
+
+        if (skipDirty) {
+
+            orig = {};
+
+            for (i = 0; i < dirty.length; i ++) {
+                p = dirty[i];
+                orig[dirty[i]] = this.__originalData[p];
+            }
+        }
+
+        else {
+            dirty = [];
+            orig = null;
+        }
+
+        this.__originalData = orig;
+        this.set('dirtyAttributes', dirty);
     },
 
     validate : function () {
