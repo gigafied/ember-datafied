@@ -159,6 +159,20 @@ DF.Collection = Ember.ArrayProxy.extend(Ember.Evented, {
     typeKey : null,
     collectionKey : null,
 
+    isDirty : function () {
+
+        var isDirty = false;
+
+        this.forEach(function (item, index) {
+            if (item.get('isDirty')) {
+                isDirty = true;
+            }
+        });
+
+        return isDirty;
+
+    }.property('content.@each.isDirty'),
+
     findByPrimaryKey : function (q) {
         return this.findBy(this.primaryKey, q);
     },
@@ -326,6 +340,15 @@ DF.Model = Ember.Object.extend({
 
     }.property(),
 
+    hasDirtyAttributes : function () {
+        var da = this.get('dirtyAttributes');
+        return da && !!da.length;
+    }.property('dirtyAttributes'),
+
+    isClean : function () {
+        return !this.get('isDirty');
+    }.property('isDirty'),
+
     isValid : function () {
         return this.validate();
     }.property(),
@@ -386,16 +409,19 @@ DF.Model = Ember.Object.extend({
         return json;
     },
 
-    deserialize : function (json) {
+    deserialize : function (json, skipDirty) {
 
         var p,
             pk,
             key,
             val,
             meta,
+            dirty,
             attributes,
             properties,
             relationships;
+
+        dirty = this.get('dirtyAttributes');
 
         attributes = this.getAttributes();
         relationships = this.getRelationships();
@@ -406,13 +432,18 @@ DF.Model = Ember.Object.extend({
 
         for (p in properties) {
 
+            if (skipDirty && dirty.indexOf(p)) {
+                continue;
+            }
+
             meta = this.constructor.metaForProperty(p);
+
             key = meta && meta.options ? meta.options.key || p : p;
 
             val = json[key];
 
             if (typeof val !== 'undefined') {
-                val = val === null ? null : meta.deserialize.call(this, val);
+                val = val === null ? null : meta.deserialize.call(this, val, skipDirty);
                 this.set(meta.key, val);
             }
 
@@ -430,12 +461,12 @@ DF.Model = Ember.Object.extend({
         return true;
     },
 
-    merge : function (data) {
+    merge : function (data, skipDirty) {
 
         data = data instanceof DF.Model ? data.deserialize() : data;
         data[this.primaryKey] = null;
 
-        this.deserialize(data);
+        this.deserialize(data, skipDirty);
     },
 
     save : function () {
@@ -623,42 +654,18 @@ DF.Model.reopenClass({
         r.reopenClass(d);
 
         relationships = r.getRelationships();
-        dirtyChecks = ['dirtyAttributes'];
+        dirtyChecks = ['hasDirtyAttributes'];
 
         for (i = 0; i < relationships.length; i ++) {
             p = relationships[i];
             meta = r.metaForProperty(p);
 
             if (meta.isRelationship && meta.options.embedded) {
-                dirtyChecks.push(p + '.dirtyAttributes');
+                dirtyChecks.push(p + '.isDirty');
             }
         }
 
-        computed = Ember.computed(function () {
-
-            var i,
-                d,
-                a,
-                t;
-
-            a = [];
-
-            for (i = 0; i < dirtyChecks.length; i ++) {
-                d = this.get(dirtyChecks[i]);
-                if (d && d.length) {
-                    return true;
-                }
-            }
-
-            return false;
-        });
-
-        computed.property.apply(computed, dirtyChecks);
-
-        Ember.defineProperty(r.prototype, 'isDirty', computed);
-        Ember.defineProperty(r.prototype, 'isClean', Ember.computed(function () {
-            return !this.get('isDirty');
-        }).property('isDirty'));
+        Ember.defineProperty(r.prototype, 'isDirty', Ember.computed.or.apply(null, dirtyChecks));
 
         return r;
     }
@@ -1195,18 +1202,21 @@ DF.belongsTo = function (factoryName, options) {
             return val;
         },
 
-        deserialize : function (val) {
+        deserialize : function (val, skipDirty) {
 
             var meta,
+                data,
                 record;
 
             meta = belongsTo.meta();
+            data = this.get('__data');
 
             if (options.embedded) {
-                record = factory.create();
+
+                record = data && data[meta.key] || factory.create();
 
                 if (val && typeof val === 'object') {
-                    record.deserialize(val);
+                    record.deserialize(val, skipDirty);
                 }
             }
 
@@ -1320,15 +1330,29 @@ DF.hasMany = function (factoryName, options) {
             return val ? val.serialize(options.embedded) : null;
         },
 
-        deserialize : function (val) {
+        deserialize : function (val, skipDirty) {
 
             var i,
+                val2,
                 meta,
+                data,
                 record,
                 records,
                 collection;
 
             meta = hasMany.meta();
+
+            if (skipDirty && options.embedded) {
+                data = this.get('__data');
+                val2 = data && data[meta.key];
+
+                if (val2) {
+                    if (val2.get('isDirty')) {
+                        return val2;
+                    }
+                }
+            }
+
             val = Ember.isArray(val) ? val : [val];
             records = [];
 
