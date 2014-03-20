@@ -3,7 +3,7 @@
 "use strict";
 
 var DF = global.DF = Ember.Namespace.create({
-    VERSION : '0.1.0'
+    VERSION : '0.1.1'
 });
 
 DF.required = function (message) {
