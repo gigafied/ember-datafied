@@ -65,21 +65,20 @@ includer('lib/main.js', {
 
     if (shouldTag) {
 
-        exec('git add . && git commit -m "New build (VERSION ' + version + ')"',
+        cp.exec('git add . && git commit -m "New build (VERSION ' + version + ')"',
 
             function (error, stdout, stderr) {
                 console.log(stdout);
                 console.error(stderr);
+
+                cp.exec('git tag -a ' + version + ' -m "Version ' + version + '"',
+                    function (error, stdout, stderr) {
+                        console.log(stdout);
+                        console.error(stderr);
+                    }
+                );
             }
-
-            exec('git tag -a ' + version + ' -m "Version ' + version + '"',
-                function (error, stdout, stderr) {
-                    console.log(stdout);
-                    console.error(stderr);
-                }
-            });
-
-        });
+        );
     }
 
     console.log(version + ' build complete!');
