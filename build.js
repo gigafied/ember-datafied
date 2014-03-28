@@ -1,4 +1,5 @@
 var fs = require('fs'),
+    cp = require('child_process'),
     argv = require('minimist')(process.argv),
     includer = require('includer'),
     wrench = require('wrench'),
@@ -19,6 +20,7 @@ includer('lib/main.js', {
     var header,
         version,
         minified,
+        shouldTag,
         bowerJSON,
         packageJSON;
 
@@ -28,6 +30,8 @@ includer('lib/main.js', {
     version = argv.v;
 
     if (version) {
+
+        shouldTag = true;
 
         version = version.toString().split('.');
 
@@ -58,6 +62,25 @@ includer('lib/main.js', {
     fs.writeFileSync('ember-datafied.js', data);
     fs.writeFileSync('./dist/ember-datafied.js', data);
     fs.writeFileSync('./dist/ember-datafied.min.js', minified);
+
+    if (shouldTag) {
+
+        exec('git add . && git commit -m "New build (VERSION ' + version + ')"',
+
+            function (error, stdout, stderr) {
+                console.log(stdout);
+                console.error(stderr);
+            }
+
+            exec('git tag -a ' + version + ' -m "Version ' + version + '"',
+                function (error, stdout, stderr) {
+                    console.log(stdout);
+                    console.error(stderr);
+                }
+            });
+
+        });
+    }
 
     console.log(version + ' build complete!');
     console.log('');
