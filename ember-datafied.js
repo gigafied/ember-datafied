@@ -1,9 +1,17 @@
+/*!
+ * ember-datafied
+ *
+ * @author      gigafied (Taka Kojima)
+ * @repo        https://github.com/gigafied/ember-datafied
+ * @license     Licensed under MIT license
+ * @VERSION     0.2.0
+ */
 ;(function (global) {
 
 "use strict";
 
 var DF = global.DF = Ember.Namespace.create({
-    VERSION : '0.1.4'
+    VERSION : '0.2.0'
 });
 
 DF.required = function (message) {
@@ -151,7 +159,7 @@ DF.RESTAdapter = DF.Adapter.extend({
     }
 });
 
-DF.Collection = Ember.ArrayProxy.extend(Ember.Evented, {
+DF.Collection = Ember.ArrayController.extend({
 
     factory : null,
     primaryKey : null,
@@ -183,23 +191,6 @@ DF.Collection = Ember.ArrayProxy.extend(Ember.Evented, {
 
     remove : function (obj) {
         return this.removeObject(obj);
-    },
-
-    removeObject : function (obj) {
-
-        var index,
-            content;
-
-        content = this.get('content');
-        index = content.indexOf(obj);
-
-        if (index < 0) {
-            return obj;
-        }
-
-        this.removeAt(index);
-
-        return obj;
     },
 
     toString : function () {
@@ -725,11 +716,15 @@ DF.Store = Ember.Object.extend({
 
     init : function () {
 
+        this.clear();
+
+        return this._super.apply(this, arguments);
+    },
+
+    clear : function () {
         this.__cache = {};
         this.__registry = {};
         this.__store = {};
-
-        return this._super.apply(this, arguments);
     },
 
     getTypeKey : function (key) {
@@ -919,30 +914,37 @@ DF.Store = Ember.Object.extend({
 
             content : Ember.A(),
 
-            arrayWillChange: Ember.K,
+            arrayDidChange : function () {
 
-            arrayDidChange: function(array, start, removeCount, addCount) {
-                this.set('content', collection.filter(function (item, index) {
+                var content;
 
-                    var p,
-                        doesMatch;
+                Ember.run.next(this, function () {
 
-                    doesMatch = true;
+                    content = collection.get('content').filter(function (item, index) {
 
-                    for (p in q) {
-                        if (item.get(p) !== q[p]) {
-                            doesMatch = false;
+                        var p,
+                            doesMatch;
+
+                        doesMatch = true;
+
+                        for (p in q) {
+                            if (item.get(p) !== q[p]) {
+                                doesMatch = false;
+                            }
                         }
-                    }
 
-                    return doesMatch;
+                        return doesMatch;
 
-                }));
+                    });
+
+                    this.set('content', content);
+                });
+
             }
         });
 
+        collection.addObserver('content.@each', filtered.arrayDidChange.bind(filtered));
         filtered.arrayDidChange();
-        collection.addArrayObserver(filtered);
 
         return filtered;
     },

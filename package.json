@@ -1,38 +1,39 @@
 {
-  "name": "ember-datafied",
-  "version": "0.1.4",
-  "description": "Easy and simple data layer for Ember.js",
-  "main": "build.js",
-  "dependencies": {
-    "includer": "~0.0.2",
-    "uglify-js": "~2.4.12",
-    "wrench": "~1.5.6"
-  },
-  "devDependencies": {
-    "wrench": "~1.5.6",
-    "includer": "0.0.2",
-    "uglify-js": "~2.4.12"
-  },
-  "scripts": {
-    "build" : "node build.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git://github.com/gigafied/ember-ez-data.git"
-  },
-  "keywords": [
-    "ember",
-    "data",
-    "model",
-    "api",
-    "rest",
-    "ajax"
-  ],
-  "author": "Taka Kojima",
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/gigafied/ember-ez-data/issues"
-  },
-  "homepage": "https://github.com/gigafied/ember-ez-data"
+    "name": "ember-datafied",
+    "version": "0.2.0",
+    "description": "Easy and simple data layer for Ember.js",
+    "main": "build.js",
+    "dependencies": {
+        "includer": "~0.0.2",
+        "uglify-js": "~2.4.12",
+        "wrench": "~1.5.6"
+    },
+    "devDependencies": {
+        "includer": "0.0.2",
+        "minimist": "0.0.8",
+        "uglify-js": "~2.4.12",
+        "wrench": "~1.5.6"
+    },
+    "scripts": {
+        "build": "node build.js",
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git://github.com/gigafied/ember-ez-data.git"
+    },
+    "keywords": [
+        "ember",
+        "data",
+        "model",
+        "api",
+        "rest",
+        "ajax"
+    ],
+    "author": "Taka Kojima",
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/gigafied/ember-ez-data/issues"
+    },
+    "homepage": "https://github.com/gigafied/ember-ez-data"
 }
