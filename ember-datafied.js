@@ -4,14 +4,14 @@
  * @author      gigafied (Taka Kojima)
  * @repo        https://github.com/gigafied/ember-datafied
  * @license     Licensed under MIT license
- * @VERSION     0.2.0
+ * @VERSION     0.2.1
  */
 ;(function (global) {
 
 "use strict";
 
 var DF = global.DF = Ember.Namespace.create({
-    VERSION : '0.2.0'
+    VERSION : '0.2.1'
 });
 
 DF.required = function (message) {
@@ -822,13 +822,29 @@ DF.Store = Ember.Object.extend({
         collection = this.__store[factory.collectionKey];
 
         if (!collection) {
-            collection = this.__store[factory.collectionKey] = DF.Collection.create({content : Ember.A()});
-
-            collection.set('factory', factory);
-            collection.set('primaryKey', factory.primaryKey);
-            collection.set('typeKey', factory.typeKey);
-            collection.set('collectionKey', factory.collectionKey);
+            collection = this.__store[factory.collectionKey] = this.createCollection(model);
         }
+
+        return collection;
+    },
+
+    createCollection : function (model) {
+
+        var factory,
+            collection;
+
+        factory = this.modelFor(model);
+
+        if (!factory) {
+            throw new Ember.Error('No model was found for "' + model + '"');
+        }
+
+        collection = DF.Collection.create({content : Ember.A()});
+
+        collection.set('factory', factory);
+        collection.set('primaryKey', factory.primaryKey);
+        collection.set('typeKey', factory.typeKey);
+        collection.set('collectionKey', factory.collectionKey);
 
         return collection;
     },
