@@ -4,14 +4,14 @@
  * @author      gigafied (Taka Kojima)
  * @repo        https://github.com/gigafied/ember-datafied
  * @license     Licensed under MIT license
- * @VERSION     0.2.1
+ * @VERSION     0.2.2
  */
 ;(function (global) {
 
 "use strict";
 
 var DF = global.DF = Ember.Namespace.create({
-    VERSION : '0.2.1'
+    VERSION : '0.2.2'
 });
 
 DF.required = function (message) {
@@ -349,7 +349,7 @@ DF.Model = Ember.Object.extend({
     }.property('pk'),
 
     isLoaded : function () {
-        return this.get('__isLoaded');
+        return this.get('isNew') || this.get('__isLoaded');
     }.property('__isLoaded'),
 
     isLoading : function () {
@@ -527,6 +527,7 @@ DF.Model = Ember.Object.extend({
                 json = Ember.isArray(json) ? json[0] : json;
 
                 this.deserialize(json);
+                this.set('__isLoaded', true);
 
                 if (isNew) {
                     this.store.add(this);
@@ -750,7 +751,9 @@ DF.Store = Ember.Object.extend({
             record = records[i];
             pk = record.get('pk');
 
-            cache[pk] = record;
+            if (pk !== null && typeof pk !== 'undefined') {
+                cache[pk] = record;
+            }
         }
 
         return cache;
@@ -1036,12 +1039,27 @@ DF.Store = Ember.Object.extend({
 
     add : function (model, records) {
 
+        var i,
+            pk,
+            record;
+
         if (model instanceof DF.Model || model instanceof DF.Collection) {
             records = model;
             model = model.factory || model.constructor;
         }
 
         records = Ember.isArray(records) ? records : [records];
+
+        for (i = 0; i < records.length; i ++) {
+            record = records[i];
+            if (record.get('pk')) {
+                if (this.findInCache(model, record.get('pk'))) {
+                    records.splice(i, 1);
+                    i --;
+                }
+            }
+        }
+
         this.addToCache(model, records);
         return this.getCollection(model).pushObjects(records);
     },
@@ -1055,7 +1073,7 @@ DF.Store = Ember.Object.extend({
 
         records = Ember.isArray(records) ? records : [records];
         this.removeFromCache(model, records);
-        return this.getCollection(model).removeObjects(records);
+        this.getCollection(model).removeObjects(records);
     },
 
     injectType : function (type, data) {
