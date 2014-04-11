@@ -1478,6 +1478,10 @@ DF.hasMany = function (factoryName, options) {
                 }
             }
 
+            if (!val) {
+                val = [];
+            }
+
             val = Ember.isArray(val) ? val : [val];
             records = [];
 
@@ -1493,19 +1497,19 @@ DF.hasMany = function (factoryName, options) {
                     }
 
                     else {
-                        record = this.store.findInCacheOrCreate(factoryName, val);
+                        record = this.store.findInCacheOrCreate(factoryName, val[i]);
                     }
 
                     records.push(record);
                 }
             }
 
-            if (records.length) {
-                collection.set('factory', factory);
-                collection.set('primaryKey', factory.primaryKey);
-                collection.set('typeKey', factory.typeKey);
-                collection.set('collectionKey', factory.collectionKey);
+            collection.set('factory', factory);
+            collection.set('primaryKey', factory.primaryKey);
+            collection.set('typeKey', factory.typeKey);
+            collection.set('collectionKey', factory.collectionKey);
 
+            if (records.length) {
                 collection.pushObjects(records);
             }
 
