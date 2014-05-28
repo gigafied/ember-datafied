@@ -1,7 +1,7 @@
 {
     "name": "ember-datafied",
     "main": "ember-datafied.js",
-    "version": "0.2.3",
+    "version": "0.2.4",
     "homepage": "https://github.com/gigafied/ember-datafied",
     "authors": [
         "Taka Kojima <taka@gigafied.com>"

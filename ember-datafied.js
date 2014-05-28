@@ -4,14 +4,14 @@
  * @author      gigafied (Taka Kojima)
  * @repo        https://github.com/gigafied/ember-datafied
  * @license     Licensed under MIT license
- * @VERSION     0.2.3
+ * @VERSION     0.2.4
  */
 ;(function (global) {
 
 "use strict";
 
 var DF = global.DF = Ember.Namespace.create({
-    VERSION : '0.2.3'
+    VERSION : '0.2.4'
 });
 
 DF.required = function (message) {
@@ -362,7 +362,8 @@ DF.Model = Ember.Object.extend({
 
     serialize : function (isNested) {
 
-        var p,
+        var a,
+            p,
             pk,
             key,
             meta,
@@ -384,7 +385,14 @@ DF.Model = Ember.Object.extend({
             meta = this.constructor.metaForProperty(p);
             key = meta.options.key || p;
 
-            json[key] = meta.serialize.call(this);
+            a = key.split('.');
+
+            while (a.length) {
+                json[a[0]] = json[a[0]] || {};
+                a.splice(0, 1);
+            }
+
+            Ember.set(json, key, meta.serialize.call(this));
         }
 
         if (this.primaryKey) {
@@ -433,7 +441,7 @@ DF.Model = Ember.Object.extend({
 
             key = meta && meta.options ? meta.options.key || p : p;
 
-            val = json[key];
+            val = Ember.get(json, key);
 
             if (typeof val !== 'undefined') {
                 val = val === null ? null : meta.deserialize.call(this, val, skipDirty);
@@ -606,7 +614,7 @@ DF.Model = Ember.Object.extend({
                 }
 
                 else {
-                    r.revert();
+                    r && r.revert();
                 }
             }
         }
