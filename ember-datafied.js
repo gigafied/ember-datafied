@@ -4,14 +4,14 @@
  * @author      gigafied (Taka Kojima)
  * @repo        https://github.com/gigafied/ember-datafied
  * @license     Licensed under MIT license
- * @VERSION     0.2.4
+ * @VERSION     0.2.5
  */
 ;(function (global) {
 
 "use strict";
 
 var DF = global.DF = Ember.Namespace.create({
-    VERSION : '0.2.4'
+    VERSION : '0.2.5'
 });
 
 DF.required = function (message) {
@@ -1161,6 +1161,7 @@ DF.attr = function (type, options) {
 
                 if (!this.__originalData) {
                     this.__originalData = Ember.copy(data || {});
+                    isDirty = true;
                 }
 
                 else {
@@ -1183,7 +1184,7 @@ DF.attr = function (type, options) {
                 }
 
                 if (typeof this.__originalData[key] === 'undefined') {
-                    this.__originalData[key] = val;
+                    this.__originalData[key] = data[key];
                 }
 
                 data[key] = val;
@@ -1291,7 +1292,7 @@ DF.belongsTo = function (factoryName, options) {
                 }
 
                 if (typeof this.__originalData[key] === 'undefined') {
-                    this.__originalData[key] = val;
+                    this.__originalData[key] = data[key];
                 }
 
                 data[key] = val;
@@ -1428,7 +1429,7 @@ DF.hasMany = function (factoryName, options) {
                 }
 
                 if (typeof this.__originalData[key] === 'undefined') {
-                    this.__originalData[key] = val;
+                    this.__originalData[key] = data[key];
                 }
 
                 data[key] = val;

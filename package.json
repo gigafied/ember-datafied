@@ -1,6 +1,6 @@
 {
     "name": "ember-datafied",
-    "version": "0.2.4",
+    "version": "0.2.5",
     "description": "Easy and simple data layer for Ember.js",
     "main": "build.js",
     "dependencies": {
