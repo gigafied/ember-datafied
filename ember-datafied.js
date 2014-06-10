@@ -4,14 +4,14 @@
  * @author      gigafied (Taka Kojima)
  * @repo        https://github.com/gigafied/ember-datafied
  * @license     Licensed under MIT license
- * @VERSION     0.2.5
+ * @VERSION     0.2.6
  */
 ;(function (global) {
 
 "use strict";
 
 var DF = global.DF = Ember.Namespace.create({
-    VERSION : '0.2.5'
+    VERSION : '0.2.6'
 });
 
 DF.required = function (message) {
@@ -1471,13 +1471,14 @@ DF.hasMany = function (factoryName, options) {
                 meta,
                 data,
                 record,
+                record2,
                 records,
                 collection;
 
             meta = hasMany.meta();
+            data = this.get('__data');
 
             if (skipDirty && options.embedded) {
-                data = this.get('__data');
                 val2 = data && data[meta.key];
 
                 if (val2) {
@@ -1494,23 +1495,42 @@ DF.hasMany = function (factoryName, options) {
             val = Ember.isArray(val) ? val : [val];
             records = [];
 
-            collection = DF.Collection.create({content : Ember.A()});
+            collection = data && data[meta.key] || DF.Collection.create({content : Ember.A()});
 
             for (i = 0; i < val.length; i ++) {
 
                 if (val && val[i]) {
 
                     if (options.embedded && typeof val[i] === 'object') {
-                        record = factory.create();
+
+                        record = collection.get('content')[i];
+
+                        if (!record) {
+                            record = factory.create();
+                            records.push(record);
+                        }
+
                         record.deserialize(val[i]);
                     }
 
                     else {
                         record = this.store.findInCacheOrCreate(factoryName, val[i]);
-                    }
+                        record2 = collection.get('content')[i];
 
-                    records.push(record);
+                        if (!record2) {
+                            records.push(record);
+                        }
+
+                        else if (record !== record2) {
+                            collection.replaceContent(i, 1, [record]);
+                        }
+
+                    }
                 }
+            }
+
+            if (val.length < collection.length) {
+                collection.removeAt(val.length, collection.length - val.length);
             }
 
             collection.set('factory', factory);
