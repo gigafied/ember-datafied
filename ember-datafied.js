@@ -4,14 +4,14 @@
  * @author      gigafied (Taka Kojima)
  * @repo        https://github.com/gigafied/ember-datafied
  * @license     Licensed under MIT license
- * @VERSION     0.2.6
+ * @VERSION     0.2.7
  */
 ;(function (global) {
 
 "use strict";
 
 var DF = global.DF = Ember.Namespace.create({
-    VERSION : '0.2.6'
+    VERSION : '0.2.7'
 });
 
 DF.required = function (message) {
@@ -587,7 +587,7 @@ DF.Model = Ember.Object.extend({
         return copy;
     },
 
-    revert : function () {
+    revert : function (revertRelationships) {
 
         var i,
             p,
@@ -603,14 +603,12 @@ DF.Model = Ember.Object.extend({
             p = relationships[i];
             meta = this.constructor.metaForProperty(p);
 
-            if (meta.options && meta.options.embedded) {
+            if (meta.options && meta.options.embedded || revertRelationships) {
 
                 r = this.get(p);
 
                 if (meta.type === 'hasMany') {
-                    r.forEach(function (item, index) {
-                        item.revert();
-                    });
+                    meta.revert.call(this);
                 }
 
                 else {
@@ -711,11 +709,46 @@ DF.Model.reopenClass({
             meta = r.metaForProperty(p);
 
             if (meta.isRelationship && meta.options.embedded) {
+
                 dirtyChecks.push(p + '.isDirty');
+
+                if (meta.type === 'hasMany') {
+                    dirtyChecks.push(p + '.@each.isDirty');
+                }
             }
         }
 
-        Ember.defineProperty(r.prototype, 'isDirty', Ember.computed.or.apply(null, dirtyChecks));
+        Ember.defineProperty(r.prototype, 'isDirty', Ember.computed.apply(null, dirtyChecks.concat(function () {
+
+            var i,
+                r,
+                r3;
+
+            for (i = 0; i < dirtyChecks.length; i ++) {
+
+                r = this.get(dirtyChecks[i]);
+
+                if (r) {
+
+                    if (r.forEach) {
+
+                        r.forEach(function (r2) {
+                            if (r2 === true) {
+                                r = true;
+                            }
+                        });
+                    }
+
+                    if (r === true) {
+                        return true;
+                    }
+
+                }
+            }
+
+            return false;
+
+        })).readOnly());
 
         return r;
     }
@@ -1376,6 +1409,7 @@ DF.hasMany = function (factoryName, options) {
 
         var data,
             oldVal,
+            oldLen,
             isDirty,
             dirtyAttrs,
             dirtyIndex;
@@ -1433,6 +1467,32 @@ DF.hasMany = function (factoryName, options) {
                 }
 
                 data[key] = val;
+
+                if (val) {
+
+                    var oldLen = data[key] && data[key].get('content.length') || 0;
+
+                    Ember.addObserver(val, 'length', this, function () {
+
+                        dirtyAttrs = this.get('dirtyAttributes');
+                        dirtyIndex = dirtyAttrs.indexOf(key + '.length');
+
+                        if (val.get('length') !== oldLen) {
+
+                            if (dirtyIndex < 0) {
+                                dirtyAttrs.push(key + '.length');
+                                this.set('dirtyAttributes', dirtyAttrs);
+                                this.notifyPropertyChange('dirtyAttributes');
+                            }
+                        }
+
+                        else {
+                            dirtyAttrs.splice(dirtyIndex, 1);
+                            this.set('dirtyAttributes', dirtyAttrs);
+                            this.notifyPropertyChange('dirtyAttributes');
+                        }
+                    });
+                }
             }
         }
 
@@ -1462,6 +1522,23 @@ DF.hasMany = function (factoryName, options) {
             val = data ? data[meta.key] : null;
 
             return val ? val.serialize(options.embedded) : null;
+        },
+
+        revert : function () {
+
+            var data,
+                meta,
+                json;
+
+            meta = hasMany.meta();
+            data = this.get('__data');
+
+            json = this.get('__' + meta.key + '_json');
+
+            if (json) {
+                meta.deserialize.call(this, json);
+            }
+
         },
 
         deserialize : function (val, skipDirty) {
@@ -1497,6 +1574,10 @@ DF.hasMany = function (factoryName, options) {
 
             collection = data && data[meta.key] || DF.Collection.create({content : Ember.A()});
 
+            if (options.embedded) {
+                this.set('__' + meta.key + '_json', val);
+            }
+
             for (i = 0; i < val.length; i ++) {
 
                 if (val && val[i]) {
@@ -1529,8 +1610,8 @@ DF.hasMany = function (factoryName, options) {
                 }
             }
 
-            if (val.length < collection.length) {
-                collection.removeAt(val.length, collection.length - val.length);
+            if (val.length < collection.get('length')) {
+                collection.removeAt(val.length, collection.get('length') - val.length);
             }
 
             collection.set('factory', factory);
