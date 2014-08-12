@@ -1509,15 +1509,33 @@ DF.hasMany = function (factoryName, options) {
 
         serialize : function () {
 
-            var val,
+            var i,
+                val,
+                map,
                 meta,
+                val2,
                 data;
+
+            map = options.map || {};
 
             data = this.get('__data');
             meta = hasMany.meta();
             val = data ? data[meta.key] : null;
 
-            return val ? val.serialize(options.embedded) : null;
+            val = val ? val.serialize(options.embedded) : null;
+
+            if (val && options.fromObject) {
+
+                val2 = {};
+
+                for (i = 0; i < val.length; i ++) {
+                    val2[val[i][map.key]] = val[i][map.value] || val[i];
+                }
+
+                val = val2;
+            }
+
+            return val;
         },
 
         revert : function () {
@@ -1540,6 +1558,10 @@ DF.hasMany = function (factoryName, options) {
         deserialize : function (val, skipDirty) {
 
             var i,
+                j,
+                obj,
+                obj2,
+                map,
                 val2,
                 meta,
                 data,
@@ -1550,6 +1572,8 @@ DF.hasMany = function (factoryName, options) {
 
             meta = hasMany.meta();
             data = this.get('__data');
+
+            map = options.map || {};
 
             if (skipDirty && options.embedded) {
                 val2 = data && data[meta.key];
@@ -1563,6 +1587,34 @@ DF.hasMany = function (factoryName, options) {
 
             if (!val) {
                 val = [];
+            }
+
+            if (val && !Ember.isArray(val) && typeof val === 'object') {
+
+                options.fromObject = true;
+                val2 = [];
+
+                for (i in val) {
+
+                    if (val[i] && !Ember.isArray(val[i]) && typeof val[i] === 'object') {
+                        obj = val[i];
+                    }
+
+                    else {
+                        obj = {value : val[i]};
+                    }
+
+                    obj.key = i;
+                    obj2 = {};
+
+                    for (j in obj) {
+                        obj2[map[j] || j] = obj[j];
+                    }
+
+                    val2.push(obj2);
+                }
+
+                val = val2;
             }
 
             val = Ember.isArray(val) ? val : [val];
@@ -1617,6 +1669,10 @@ DF.hasMany = function (factoryName, options) {
 
             if (records.length) {
                 collection.pushObjects(records);
+            }
+
+            if (options.log) {
+                console.log(factory.typeKey, collection, options.map);
             }
 
             return collection;
