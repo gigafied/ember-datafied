@@ -4,14 +4,14 @@
  * @author      gigafied (Taka Kojima)
  * @repo        https://github.com/gigafied/ember-datafied
  * @license     Licensed under MIT license
- * @VERSION     0.3.0
+ * @VERSION     0.3.1
  */
 ;(function (global) {
 
 "use strict";
 
 var DF = global.DF = Ember.Namespace.create({
-    VERSION : '0.3.0'
+    VERSION : '0.3.1'
 });
 
 DF.required = function (message) {
@@ -1235,6 +1235,7 @@ DF.attr = function (type, options) {
         isAttribute : true,
 
         serialize : function () {
+
             var meta = attr.meta(),
                 data = this.get('__data');
 
@@ -1522,7 +1523,7 @@ DF.hasMany = function (factoryName, options) {
             meta = hasMany.meta();
             val = data ? data[meta.key] : null;
 
-            val = val ? val.serialize(options.embedded) : null;
+            val = val ? val.serialize(options.embedded) : val;
 
             if (val && options.fromObject) {
 
