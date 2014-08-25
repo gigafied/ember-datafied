@@ -4,14 +4,14 @@
  * @author      gigafied (Taka Kojima)
  * @repo        https://github.com/gigafied/ember-datafied
  * @license     Licensed under MIT license
- * @VERSION     0.3.1
+ * @VERSION     0.3.2
  */
 ;(function (global) {
 
 "use strict";
 
 var DF = global.DF = Ember.Namespace.create({
-    VERSION : '0.3.1'
+    VERSION : '0.3.2'
 });
 
 DF.required = function (message) {
@@ -1172,6 +1172,7 @@ DF.attr = function (type, options) {
         var data,
             oldVal,
             isDirty,
+            undefined,
             dirtyAttrs,
             dirtyIndex;
 
@@ -1221,7 +1222,7 @@ DF.attr = function (type, options) {
         }
 
         else {
-            val = data ? data[key] : null;
+            val = data ? data[key] : undefined;
         }
 
         return val;
@@ -1239,7 +1240,7 @@ DF.attr = function (type, options) {
             var meta = attr.meta(),
                 data = this.get('__data');
 
-            return data ? data[meta.key] : null;
+            return data ? data[meta.key] : undefined;
         },
 
         deserialize : function (val) {
@@ -1267,6 +1268,7 @@ DF.belongsTo = function (factoryName, options) {
         var data,
             oldVal,
             isDirty,
+            undefined,
             dirtyAttrs,
             dirtyIndex;
 
@@ -1330,7 +1332,7 @@ DF.belongsTo = function (factoryName, options) {
         }
 
         else {
-            val = data ? data[key] : null;
+            val = data ? data[key] : undefined;
         }
 
         return val;
@@ -1348,11 +1350,12 @@ DF.belongsTo = function (factoryName, options) {
 
             var val,
                 data,
-                meta;
+                meta,
+                undefined;
 
             data = this.get('__data');
             meta = belongsTo.meta();
-            val = data ? data[meta.key] : null;
+            val = data ? data[meta.key] : undefined;
 
             if (val && val instanceof DF.Model) {
 
@@ -1405,9 +1408,11 @@ DF.hasMany = function (factoryName, options) {
     hasMany = Ember.computed(function (key, val) {
 
         var data,
+            undef,
             oldVal,
             oldLen,
             isDirty,
+            undefined,
             dirtyAttrs,
             dirtyIndex;
 
@@ -1494,7 +1499,7 @@ DF.hasMany = function (factoryName, options) {
         }
 
         else {
-            val = data ? data[key] : null;
+            val = data ? data[key] : undefined;
         }
 
         return val;
@@ -1515,13 +1520,14 @@ DF.hasMany = function (factoryName, options) {
                 map,
                 meta,
                 val2,
-                data;
+                data,
+                undefined;
 
             map = options.map || {};
 
             data = this.get('__data');
             meta = hasMany.meta();
-            val = data ? data[meta.key] : null;
+            val = data ? data[meta.key] :  undefined;
 
             val = val ? val.serialize(options.embedded) : val;
 
