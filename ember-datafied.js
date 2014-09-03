@@ -4,14 +4,14 @@
  * @author      gigafied (Taka Kojima)
  * @repo        https://github.com/gigafied/ember-datafied
  * @license     Licensed under MIT license
- * @VERSION     0.3.2
+ * @VERSION     0.3.3
  */
 ;(function (global) {
 
 "use strict";
 
 var DF = global.DF = Ember.Namespace.create({
-    VERSION : '0.3.2'
+    VERSION : '0.3.3'
 });
 
 DF.required = function (message) {
@@ -507,8 +507,8 @@ DF.Model = Ember.Object.extend({
 
         return this.__currentPromise = this.adapter.fetch(this.constructor, this.get('pk')).then(function (json) {
 
-            json = json[this.typeKey] || json;
             json = Ember.isArray(json) ? json[0] : json;
+            json = json[this.typeKey] || json;
 
             this.deserialize(json);
 
@@ -531,8 +531,8 @@ DF.Model = Ember.Object.extend({
 
                 var isNew = this.get('isNew');
 
-                json = json[this.typeKey] || json;
                 json = Ember.isArray(json) ? json[0] : json;
+                json = json[this.typeKey] || json;
 
                 this.deserialize(json);
                 this.set('__isLoaded', true);
