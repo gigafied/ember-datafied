@@ -4,14 +4,14 @@
  * @author      gigafied (Taka Kojima)
  * @repo        https://github.com/gigafied/ember-datafied
  * @license     Licensed under MIT license
- * @VERSION     0.3.3
+ * @VERSION     0.3.4
  */
 ;(function (global) {
 
 "use strict";
 
 var DF = global.DF = Ember.Namespace.create({
-    VERSION : '0.3.3'
+    VERSION : '0.3.4'
 });
 
 DF.required = function (message) {
@@ -1631,6 +1631,10 @@ DF.hasMany = function (factoryName, options) {
 
             if (options.embedded) {
                 this.set('__' + meta.key + '_json', val);
+            }
+
+            if (options.itemController) {
+                collection.set('itemController', options.itemController);
             }
 
             for (i = 0; i < val.length; i ++) {
