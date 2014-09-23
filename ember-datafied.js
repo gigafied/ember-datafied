@@ -146,6 +146,7 @@ DF.RESTAdapter = DF.Adapter.extend({
     },
 
     updateRecord : function (record) {
+
         return this.httpPut(
             this.getURL(record.constructor, record.get('pk')),
             record.serialize()
@@ -686,7 +687,7 @@ DF.Model.reopenClass({
 
         d = {};
         r = this._super.apply(this, arguments);
-        classProps = ['primaryKey', 'url', 'adapter', 'typeKey', 'collectionKey'];
+        classProps = ['primaryKey', 'url', 'adapter', 'typeKey', 'collectionKey', 'recordController'];
 
         props = [].slice.apply(arguments, [-1])[0];
 
@@ -753,6 +754,36 @@ DF.Model.reopenClass({
         return r;
     }
 });
+
+(function () {
+
+    function proxy (fn) {
+
+        return function () {
+            return this.get('model')[fn].apply(this.get('model'), arguments);
+        };
+    }
+
+    DF.ModelController = Ember.ObjectController.extend({
+
+        getAttributes : proxy('getAttributes'),
+        getRelationships : proxy('getRelationships'),
+
+        serialize : proxy('serialize'),
+        deserialize : proxy('deserialize'),
+        validate : proxy('validate'),
+        merge : proxy('merge'),
+        save : proxy('save'),
+        fetch : proxy('fetch'),
+        fetchRecord : proxy('fetchRecord'),
+        saveRecord : proxy('saveRecord'),
+        deleteRecord : proxy('deleteRecord'),
+        clone : proxy('clone'),
+        revert : proxy('revert')
+
+    });
+
+})();
 
 DF.Store = Ember.Object.extend({
 
@@ -822,17 +853,41 @@ DF.Store = Ember.Object.extend({
         return cache;
     },
 
-    findInCache : function (model, id) {
+    wrapRecord : function (record, factory) {
+
+        var controller;
+
+        if (factory.recordController) {
+            controller = this.container.lookupFactory('controller:' + this.getCollection(factory).get('itemController'));
+
+            if (controller) {
+                controller = controller.create({model: record});
+            }
+
+            else {
+                controller = null;
+            }
+        }
+
+        return controller || record;
+    },
+
+    findInCache : function (model, id, doWrap) {
 
         var cache,
             factory;
 
         factory = this.modelFor(model);
         cache = this.__cache[factory.collectionKey] = this.__cache[factory.collectionKey] || {};
-        return cache[id];
+
+        if (doWrap === false) {
+            return cache[id];
+        }
+
+        return cache[id] ? this.wrapRecord(cache[id], factory) : null;
     },
 
-    findInCacheOrCreate : function (model, id) {
+    findInCacheOrCreate : function (model, id, doWrap) {
 
         var record,
             factory;
@@ -840,13 +895,17 @@ DF.Store = Ember.Object.extend({
         factory = this.modelFor(model);
 
         if (id) {
-            record = this.findInCache(model, id);
+            record = this.findInCache(model, id, doWrap);
         }
 
         if (!record) {
             record = factory.create();
             record.set('pk', id);
             this.add(factory, record);
+
+            if (!doWrap === false) {
+                record = this.wrapRecord(record, factory);
+            }
         }
 
         return record;
@@ -875,7 +934,8 @@ DF.Store = Ember.Object.extend({
     createCollection : function (model) {
 
         var factory,
-            collection;
+            collection,
+            collectionFactory;
 
         factory = this.modelFor(model);
 
@@ -883,7 +943,12 @@ DF.Store = Ember.Object.extend({
             throw new Ember.Error('No model was found for "' + model + '"');
         }
 
-        collection = DF.Collection.create({content : Ember.A()});
+        collectionFactory = this.container.lookupFactory('collection:models.' + (model.__emberName || model));
+        collection = (collectionFactory || DF.Collection).create({container : this.container, store: this, model : Ember.A()});
+
+        if (factory.recordController) {
+            collection.set('itemController', factory.recordController);
+        }
 
         collection.set('factory', factory);
         collection.set('primaryKey', factory.primaryKey);
@@ -925,12 +990,30 @@ DF.Store = Ember.Object.extend({
         return factory;
     },
 
+    controllerFor : function (key) {
+
+        var factory;
+
+        factory = this.getCollection(key);
+        key = factory.get('itemController');
+
+        factory = this.container.lookupFactory(this.container.normalize('controller:' + key));
+
+        if (factory) {
+            return factory.create({container : this.container, store: this});
+        }
+
+        return null;
+    },
+
     registerModel : function (key) {
 
         var factory = this.modelFor(key);
 
         this.__registry[factory.typeKey] = factory;
         this.__registry[factory.collectionKey] = factory;
+
+        factory.__emberName = key;
 
         return factory;
     },
@@ -969,35 +1052,31 @@ DF.Store = Ember.Object.extend({
             filtered;
 
         collection = this.getCollection(model);
+        filtered = this.createCollection(model);
 
-        filtered = DF.Collection.create({
+        filtered.arrayDidChange = function () {
 
-            content : Ember.A(),
+            var content;
 
-            arrayDidChange : function () {
+            content = collection.get('content').filter(function (item, index) {
 
-                var content;
+                var p,
+                    doesMatch;
 
-                content = collection.get('content').filter(function (item, index) {
+                doesMatch = true;
 
-                    var p,
-                        doesMatch;
-
-                    doesMatch = true;
-
-                    for (p in q) {
-                        if (item.get(p) !== q[p]) {
-                            doesMatch = false;
-                        }
+                for (p in q) {
+                    if (item.get(p) !== q[p]) {
+                        doesMatch = false;
                     }
+                }
 
-                    return doesMatch;
+                return doesMatch;
 
-                });
+            });
 
-                this.set('content', content);
-            }
-        });
+            this.set('content', content);
+        };
 
         collection.addObserver('content.@each', filtered.arrayDidChange.bind(filtered));
         filtered.arrayDidChange();
@@ -1040,7 +1119,7 @@ DF.Store = Ember.Object.extend({
             record = this.findInCacheOrCreate(model, json[factory.primaryKey]);
             record.deserialize(json);
 
-            return record;
+            return this.wrapRecord(record, factory);
 
         }.bind(this));
     },
@@ -1126,7 +1205,7 @@ DF.Store = Ember.Object.extend({
         for (i = 0; i < data.length; i ++) {
             item = data[i];
             if (item) {
-                record = this.findInCacheOrCreate(factory, item[factory.primaryKey]);
+                record = this.findInCacheOrCreate(factory, item[factory.primaryKey], false);
                 record.deserialize(item);
             }
         }
@@ -1265,10 +1344,12 @@ DF.belongsTo = function (factoryName, options) {
 
     belongsTo = Ember.computed(function (key, val) {
 
-        var data,
+        var ckey,
+            data,
             oldVal,
             isDirty,
             undefined,
+            controller,
             dirtyAttrs,
             dirtyIndex;
 
@@ -1316,9 +1397,14 @@ DF.belongsTo = function (factoryName, options) {
                 }
 
                 if (val) {
+
+                    while (val instanceof DF.ModelController) {
+                        val = val.get('model');
+                    }
+
                     Ember.assert(
                         Ember.String.fmt('Attempted to set property of type: %@ with a value of type: %@',
-                        [val.constructor, factoryName]),
+                        [factoryName, val.constructor]),
                         val instanceof factory
                     );
                 }
@@ -1333,6 +1419,22 @@ DF.belongsTo = function (factoryName, options) {
 
         else {
             val = data ? data[key] : undefined;
+        }
+
+        ckey = '__controller_' + key;
+
+        if (!this.get(ckey) && typeof val !== 'undefined') {
+            controller = this.store.controllerFor(factoryName);
+            if (controller) {
+                controller.set('model', val);
+                this.set(ckey, controller);
+                return controller;
+            }
+        }
+
+        else if (typeof val !== 'undefined') {
+            this.get(ckey).set('model', val);
+            return this.get(ckey);
         }
 
         return val;
@@ -1357,7 +1459,7 @@ DF.belongsTo = function (factoryName, options) {
             meta = belongsTo.meta();
             val = data ? data[meta.key] : undefined;
 
-            if (val && val instanceof DF.Model) {
+            if (val) {
 
                 if (options.embedded) {
                     return val.serialize();
@@ -1627,14 +1729,10 @@ DF.hasMany = function (factoryName, options) {
             val = Ember.isArray(val) ? val : [val];
             records = [];
 
-            collection = data && data[meta.key] || DF.Collection.create({content : Ember.A()});
+            collection = data && data[meta.key] || this.store.createCollection(factoryName);
 
             if (options.embedded) {
                 this.set('__' + meta.key + '_json', val);
-            }
-
-            if (options.itemController) {
-                collection.set('itemController', options.itemController);
             }
 
             for (i = 0; i < val.length; i ++) {
@@ -1711,6 +1809,7 @@ Ember.Application.initializer({
         app.inject('route', 'store', 'store:main');
 
         for (p in container.registry.dict) {
+
             if (p.indexOf('model:') > -1) {
                 store.registerModel(p.split(':', 2)[1]);
             }
