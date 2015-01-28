@@ -4,14 +4,14 @@
  * @author      gigafied (Taka Kojima)
  * @repo        https://github.com/gigafied/ember-datafied
  * @license     Licensed under MIT license
- * @VERSION     0.3.4
+ * @VERSION     0.3.5
  */
 ;(function (global) {
 
 "use strict";
 
 var DF = global.DF = Ember.Namespace.create({
-    VERSION : '0.3.4'
+    VERSION : '0.3.5'
 });
 
 DF.required = function (message) {
@@ -234,6 +234,7 @@ DF.Model = Ember.Object.extend({
     __currentPromise : null,
 
     __isSaving : false,
+    __isFetching : false,
     __isLoaded : false,
     __isDeleting : false,
     __isDeleted : false,
@@ -499,13 +500,15 @@ DF.Model = Ember.Object.extend({
 
         this.set('__isLoaded', false);
 
-        if (this.__currentPromise) {
-            if (this.__currentPromise._state !== 1 && this.__currentPromise._state !== 2) {
-                return this.__currentPromise = this.__currentPromise.then(this.fetchRecord.bind(this));
-            }
+        if (this.get('__isFetching')) {
+            return this.__currentPromise;
         }
 
+        this.set('__isFetching', true);
+
         return this.__currentPromise = this.adapter.fetch(this.constructor, this.get('pk')).then(function (json) {
+
+            this.set('__isFetching', false);
 
             json = Ember.isArray(json) ? json[0] : json;
             json = json[this.typeKey] || json;
@@ -519,15 +522,9 @@ DF.Model = Ember.Object.extend({
 
         if (this.get('isValid')) {
 
-            if (this.__currentPromise) {
-                if (this.__currentPromise._state !== 1 && this.__currentPromise._state !== 2) {
-                    return this.__currentPromise = this.__currentPromise.then(this.saveRecord.bind(this));
-                }
-            }
-
             this.set('dirtyAttributes', []);
 
-            return this.__currentPromise = this.adapter.saveRecord(this).then(function (json) {
+            return this.adapter.saveRecord(this).then(function (json) {
 
                 var isNew = this.get('isNew');
 
@@ -558,13 +555,7 @@ DF.Model = Ember.Object.extend({
         this.set('__isDeleting', true);
         this.store.remove(this);
 
-        if (this.__currentPromise) {
-            if (this.__currentPromise._state !== 1 && this.__currentPromise._state !== 2) {
-                return this.__currentPromise = this.__currentPromise.then(this.deleteRecord.bind(this));
-            }
-        }
-
-        return this.__currentPromise = this.adapter.deleteRecord(this).then(function (json) {
+        return this.adapter.deleteRecord(this).then(function (json) {
 
             this.set('__isDeleting', false);
             this.set('__isDeleted', true);
