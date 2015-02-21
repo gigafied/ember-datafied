@@ -4,14 +4,14 @@
  * @author      gigafied (Taka Kojima)
  * @repo        https://github.com/gigafied/ember-datafied
  * @license     Licensed under MIT license
- * @VERSION     0.3.6
+ * @VERSION     0.3.7
  */
 ;(function (global) {
 
 "use strict";
 
 var DF = global.DF = Ember.Namespace.create({
-    VERSION : '0.3.6'
+    VERSION : '0.3.7'
 });
 
 DF.required = function (message) {
@@ -1687,6 +1687,7 @@ Ember.Application.initializer({
     initialize: function (container, app) {
 
         var p,
+            reg,
             store;
 
         store = DF.Store.create();
@@ -1701,7 +1702,9 @@ Ember.Application.initializer({
         app.inject('view', 'store', 'store:main');
         app.inject('route', 'store', 'store:main');
 
-        for (p in container.registry.dict) {
+        reg = container.registry.dict || container.registry;
+
+        for (p in reg) {
             if (p.indexOf('model:') > -1) {
                 store.registerModel(p.split(':', 2)[1]);
             }
