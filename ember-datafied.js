@@ -4,14 +4,14 @@
  * @author      gigafied (Taka Kojima)
  * @repo        https://github.com/gigafied/ember-datafied
  * @license     Licensed under MIT license
- * @VERSION     0.3.8
+ * @VERSION     0.3.9
  */
 ;(function (global) {
 
 "use strict";
 
 var DF = global.DF = Ember.Namespace.create({
-    VERSION : '0.3.8'
+    VERSION : '0.3.9'
 });
 
 DF.required = function (message) {
@@ -481,11 +481,21 @@ DF.Model = Ember.Object.extend({
     },
 
     merge : function (data, skipDirty) {
+
+        var p,
+            dirty;
+
         data = data || {};
         data = data instanceof DF.Model ? data.deserialize() : data;
-        data[this.primaryKey] = null;
+        delete data[this.primaryKey];
 
-        this.deserialize(data, skipDirty);
+        dirty = this.get('dirtyAttributes').concat();
+
+        for (p in data) {
+            if (!skipDirty || dirty.indexOf(p) < 0) {
+                this.set(p, data[p]);
+            }
+        }
     },
 
     save : function () {
@@ -603,7 +613,7 @@ DF.Model = Ember.Object.extend({
                 }
 
                 else {
-                    r && r.revert();
+                    r && r.revert(revertRelationships);
                 }
             }
         }
