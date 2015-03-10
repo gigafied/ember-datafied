@@ -970,7 +970,8 @@ DF.Store = Ember.Object.extend({
 
     filter : function (model, q, props) {
 
-        var p,
+        var i,
+            p,
             props,
             collection;
 
@@ -986,6 +987,8 @@ DF.Store = Ember.Object.extend({
             props.push('content.length');
         }
 
+        console.log(props);
+
         return DF.Collection.extend({
 
             content : Ember.A(),
@@ -993,10 +996,17 @@ DF.Store = Ember.Object.extend({
             init : function () {
 
                 this.arrayDidChange = this.arrayDidChange.bind(this);
+
+                for (i = 0; i < props.length; i ++) {
+                    collection.addObserver(props[i], this.arrayDidChange);
+                }
+
+                this.arrayDidChange();
+
                 return this._super.apply(this, arguments);
             },
 
-            arrayDidChange : Ember.observer.call(null, props.join(' '), function () {
+            arrayDidChange : function () {
 
                 var content;
 
@@ -1025,7 +1035,15 @@ DF.Store = Ember.Object.extend({
 
                 this.set('content', content);
 
-            })
+            },
+
+            destroy : function () {
+                for (i = 0; i < props.length; i ++) {
+                    collection.removeObserver(props[i], this.arrayDidChange);
+                }
+
+                return this._super.apply(this, arguments);
+            }
 
         }).create();
     },
