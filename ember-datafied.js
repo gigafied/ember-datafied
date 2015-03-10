@@ -4,14 +4,14 @@
  * @author      gigafied (Taka Kojima)
  * @repo        https://github.com/gigafied/ember-datafied
  * @license     Licensed under MIT license
- * @VERSION     0.3.9
+ * @VERSION     0.4.0
  */
 ;(function (global) {
 
 "use strict";
 
 var DF = global.DF = Ember.Namespace.create({
-    VERSION : '0.3.9'
+    VERSION : '0.4.0'
 });
 
 DF.required = function (message) {
@@ -833,7 +833,7 @@ DF.Store = Ember.Object.extend({
         return cache[id];
     },
 
-    findInCacheOrCreate : function (model, id) {
+    findInCacheOrCreate : function (model, id, data) {
 
         var record,
             factory;
@@ -842,10 +842,12 @@ DF.Store = Ember.Object.extend({
 
         if (id) {
             record = this.findInCache(model, id);
+            data && record.deserialize(data);
         }
 
         if (!record) {
             record = factory.create();
+            data && record.deserialize(data);
             record.set('pk', id);
             this.add(factory, record);
         }
@@ -964,16 +966,33 @@ DF.Store = Ember.Object.extend({
         }, this);
     },
 
-    filter : function (model, q) {
+    filter : function (model, q, props) {
 
-        var collection,
-            filtered;
+        var p,
+            props,
+            collection;
 
         collection = this.getCollection(model);
+        props = props ? props.concat() : [];
 
-        filtered = DF.Collection.create({
+        if (typeof q === 'object') {
+            for (p in q) {
+                props.push('content.@each.' + p);
+            }
+        }
+        else if (typeof q === 'function') {
+            props.push('content.length');
+        }
+
+        return DF.Collection.extend({
 
             content : Ember.A(),
+
+            init : function () {
+
+                this.arrayDidChange = this.arrayDidChange.bind(this);
+                return this._super.apply(this, arguments);
+            },
 
             arrayDidChange : function () {
 
@@ -981,15 +1000,21 @@ DF.Store = Ember.Object.extend({
 
                 content = collection.get('content').filter(function (item, index) {
 
-                    var p,
-                        doesMatch;
+                    var doesMatch = true;
 
-                    doesMatch = true;
+                    if (!q) {
+                        return doesMatch;
+                    }
 
-                    for (p in q) {
-                        if (item.get(p) !== q[p]) {
-                            doesMatch = false;
+                    if (typeof q === 'object') {
+                        for (p in q) {
+                            if (item.get(p) !== q[p]) {
+                                doesMatch = false;
+                            }
                         }
+                    }
+                    else if (typeof q === 'function') {
+                        doesMatch = q.apply(this, [item]);
                     }
 
                     return doesMatch;
@@ -997,13 +1022,10 @@ DF.Store = Ember.Object.extend({
                 });
 
                 this.set('content', content);
-            }
-        });
 
-        collection.addObserver('content.@each', filtered.arrayDidChange.bind(filtered));
-        filtered.arrayDidChange();
+            }.observes.apply(null, props)
 
-        return filtered;
+        }).create();
     },
 
     all : function (model) {
@@ -1038,8 +1060,7 @@ DF.Store = Ember.Object.extend({
             json = json[factory.typeKey] || json;
             json = Ember.isArray(json) ? json[0] : json;
 
-            record = this.findInCacheOrCreate(model, json[factory.primaryKey]);
-            record.deserialize(json);
+            record = this.findInCacheOrCreate(model, json[factory.primaryKey], json);
 
             return record;
 
@@ -1065,8 +1086,7 @@ DF.Store = Ember.Object.extend({
 
             for (i = 0; i < json.length; i ++) {
                 item = json[i];
-                record = this.findInCacheOrCreate(model, item[factory.primaryKey]);
-                record.deserialize(item);
+                record = this.findInCacheOrCreate(model, item[factory.primaryKey], item);
                 records.push(record);
             }
 
@@ -1127,8 +1147,7 @@ DF.Store = Ember.Object.extend({
         for (i = 0; i < data.length; i ++) {
             item = data[i];
             if (item) {
-                record = this.findInCacheOrCreate(factory, item[factory.primaryKey]);
-                record.deserialize(item);
+                record = this.findInCacheOrCreate(factory, item[factory.primaryKey], item);
             }
         }
     },
