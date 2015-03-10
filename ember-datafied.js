@@ -4,14 +4,14 @@
  * @author      gigafied (Taka Kojima)
  * @repo        https://github.com/gigafied/ember-datafied
  * @license     Licensed under MIT license
- * @VERSION     0.4.1
+ * @VERSION     0.4.2
  */
 ;(function (global) {
 
 "use strict";
 
 var DF = global.DF = Ember.Namespace.create({
-    VERSION : '0.4.1'
+    VERSION : '0.4.2'
 });
 
 DF.required = function (message) {
@@ -996,7 +996,7 @@ DF.Store = Ember.Object.extend({
                 return this._super.apply(this, arguments);
             },
 
-            arrayDidChange : function () {
+            arrayDidChange : Ember.observer.call(null, props.join(' '), function () {
 
                 var content;
 
@@ -1025,7 +1025,7 @@ DF.Store = Ember.Object.extend({
 
                 this.set('content', content);
 
-            }.observes.apply(null, props)
+            })
 
         }).create();
     },
