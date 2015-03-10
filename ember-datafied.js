@@ -4,14 +4,14 @@
  * @author      gigafied (Taka Kojima)
  * @repo        https://github.com/gigafied/ember-datafied
  * @license     Licensed under MIT license
- * @VERSION     0.4.0
+ * @VERSION     0.4.1
  */
 ;(function (global) {
 
 "use strict";
 
 var DF = global.DF = Ember.Namespace.create({
-    VERSION : '0.4.0'
+    VERSION : '0.4.1'
 });
 
 DF.required = function (message) {
@@ -842,7 +842,9 @@ DF.Store = Ember.Object.extend({
 
         if (id) {
             record = this.findInCache(model, id);
-            data && record.deserialize(data);
+            if (data && record) {
+                record.deserialize(data);
+            }
         }
 
         if (!record) {
