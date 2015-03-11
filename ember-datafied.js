@@ -987,11 +987,9 @@ DF.Store = Ember.Object.extend({
             props.push('content.length');
         }
 
-        console.log(props);
-
         return DF.Collection.extend({
 
-            content : Ember.A(),
+            model : Ember.A(),
 
             init : function () {
 
@@ -1008,9 +1006,9 @@ DF.Store = Ember.Object.extend({
 
             arrayDidChange : function () {
 
-                var content;
+                var model;
 
-                content = collection.get('content').filter(function (item, index) {
+                model = collection.get('model').filter(function (item, index) {
 
                     var doesMatch = true;
 
@@ -1033,7 +1031,7 @@ DF.Store = Ember.Object.extend({
 
                 });
 
-                this.set('content', content);
+                this.set('model', model);
 
             },
 
