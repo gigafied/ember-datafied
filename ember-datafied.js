@@ -687,7 +687,7 @@ DF.Model.reopenClass({
 
         d = {};
         r = this._super.apply(this, arguments);
-        classProps = ['primaryKey', 'url', 'adapter', 'typeKey', 'collectionKey'];
+        classProps = ['primaryKey', 'url', 'typeKey', 'collectionKey'];
 
         props = [].slice.apply(arguments, [-1])[0];
 
@@ -1073,7 +1073,7 @@ DF.Store = Ember.Object.extend({
 
         factory = this.modelFor(model);
 
-        return factory.adapter.fetch(factory, q).then(function (json) {
+        return factory.prototype.adapter.fetch(factory, q).then(function (json) {
 
             json = json[factory.typeKey] || json;
             json = Ember.isArray(json) ? json[0] : json;
@@ -1097,7 +1097,7 @@ DF.Store = Ember.Object.extend({
         records = [];
         factory = this.modelFor(model);
 
-        return factory.adapter.fetchAll(factory).then(function (json) {
+        return factory.prototype.adapter.fetchAll(factory).then(function (json) {
 
             json = json[factory.collectionKey] || json;
             json = Ember.isArray(json) ? json : [json];
