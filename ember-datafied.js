@@ -4,14 +4,14 @@
  * @author      gigafied (Taka Kojima)
  * @repo        https://github.com/gigafied/ember-datafied
  * @license     Licensed under MIT license
- * @VERSION     0.4.4
+ * @VERSION     0.4.5
  */
 ;(function (global) {
 
 "use strict";
 
 var DF = global.DF = Ember.Namespace.create({
-    VERSION : '0.4.4'
+    VERSION : '0.4.5'
 });
 
 DF.required = function (message) {
